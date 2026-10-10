@@ -5,7 +5,6 @@ Collects comprehensive hardware information from the Linux system.
 """
 
 import os
-import re
 import logging
 import subprocess
 

@@ -4,8 +4,6 @@ ServerInventory — Network Information API
 Network interfaces, connections, firewall, DNS, and routing info.
 """
 
-import os
-import re
 import logging
 import subprocess
 import socket

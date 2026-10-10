@@ -4,7 +4,6 @@ ServerInventory — Authentication Module
 Uses Linux PAM for system-level authentication with JWT sessions.
 """
 
-import os
 import pwd
 import logging
 import functools

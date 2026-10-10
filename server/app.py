@@ -7,7 +7,6 @@ A professional Linux server management application.
 import os
 import sys
 import ssl
-import json
 import logging
 import signal
 from datetime import datetime
@@ -23,7 +22,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
 from config import Config
-from auth import auth_bp, jwt_required_socket
+from auth import auth_bp
 from api_hardware import hardware_bp
 from api_software import software_bp
 from api_network import network_bp
@@ -90,10 +89,12 @@ limiter.limit("5 per minute")(auth_bp)
 # ─── Register WebSocket Events ──────────────────────────────────────────────
 register_terminal_events(socketio)
 
+
 # ─── Serve Frontend ─────────────────────────────────────────────────────────
 @app.route('/')
 def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
+
 
 @app.route('/<path:path>')
 def serve_static(path):
@@ -101,6 +102,7 @@ def serve_static(path):
     if os.path.isfile(file_path):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
+
 
 # ─── Health Check ────────────────────────────────────────────────────────────
 @app.route('/api/health')
@@ -112,38 +114,44 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat() + 'Z'
     })
 
+
 # ─── Error Handlers ─────────────────────────────────────────────────────────
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({'error': 'Not found'}), 404
 
+
 @app.errorhandler(413)
 def too_large(e):
     return jsonify({'error': 'File too large'}), 413
+
 
 @app.errorhandler(429)
 def rate_limit_exceeded(e):
     return jsonify({'error': 'Too many requests. Please try again later.'}), 429
 
+
 @app.errorhandler(500)
 def internal_error(e):
-    logger.error(f"Internal error: {e}")
+    logger.error("Internal error: %s", e)
     return jsonify({'error': 'Internal server error'}), 500
+
 
 # ─── Signal Handling ─────────────────────────────────────────────────────────
 def signal_handler(sig, frame):
     logger.info("Shutting down ServerInventory...")
     sys.exit(0)
 
+
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    logger.info(f"╔══════════════════════════════════════════╗")
-    logger.info(f"║     ServerInventory v{Config.VERSION}            ║")
-    logger.info(f"║     https://0.0.0.0:{Config.PORT}               ║")
-    logger.info(f"╚══════════════════════════════════════════╝")
+    logger.info("╔══════════════════════════════════════════╗")
+    logger.info("║     ServerInventory v%s            ║", Config.VERSION)
+    logger.info("║     https://0.0.0.0:%s               ║", Config.PORT)
+    logger.info("╚══════════════════════════════════════════╝")
 
     ssl_context = None
     if Config.SSL_CERT and Config.SSL_KEY:

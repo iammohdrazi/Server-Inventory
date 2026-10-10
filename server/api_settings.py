@@ -138,7 +138,7 @@ def _get_cron_jobs():
         jobs.append({
             'user': 'system',
             'source': '/etc/crontab',
-            'entries': [l for l in content.split('\n') if l.strip() and not l.startswith('#')]
+            'entries': [line for line in content.split('\n') if line.strip() and not line.startswith('#')]
         })
 
     # User crontabs
@@ -152,7 +152,7 @@ def _get_cron_jobs():
                     jobs.append({
                         'user': user,
                         'source': f'crontab -l -u {user}',
-                        'entries': [l for l in cron.split('\n') if l.strip() and not l.startswith('#')]
+                        'entries': [line for line in cron.split('\n') if line.strip() and not line.startswith('#')]
                     })
 
     # Cron.d directory
@@ -165,7 +165,7 @@ def _get_cron_jobs():
                     jobs.append({
                         'user': 'system',
                         'source': f'/etc/cron.d/{f.strip()}',
-                        'entries': [l for l in content.split('\n') if l.strip() and not l.startswith('#')]
+                        'entries': [line for line in content.split('\n') if line.strip() and not line.startswith('#')]
                     })
 
     return jobs

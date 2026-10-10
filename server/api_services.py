@@ -4,7 +4,6 @@ ServerInventory — Services Management API
 Start, stop, restart, enable, disable systemd services.
 """
 
-import os
 import logging
 import subprocess
 

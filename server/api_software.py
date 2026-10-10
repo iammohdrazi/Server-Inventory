@@ -4,8 +4,6 @@ ServerInventory — Software Information API
 Lists installed packages, running processes, and provides descriptions.
 """
 
-import os
-import re
 import logging
 import subprocess
 

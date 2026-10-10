@@ -13,7 +13,6 @@ import psutil
 from flask import Blueprint, jsonify
 
 from auth import jwt_required
-from config import Config
 
 logger = logging.getLogger('serverinventory.system')
 system_bp = Blueprint('system', __name__)
@@ -97,7 +96,7 @@ def dashboard():
         'cpu': {
             'percent': cpu_percent,
             'cores': cpu_count,
-            'load_avg': [round(l, 2) for l in load_avg]
+            'load_avg': [round(val, 2) for val in load_avg]
         },
         'memory': {
             'total': mem.total,

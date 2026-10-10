@@ -5,16 +5,14 @@ Browse, upload, download, delete, move, copy, and share files.
 """
 
 import os
-import re
 import shutil
 import mimetypes
 import logging
 import hashlib
 import secrets
 from datetime import datetime, timezone
-from pathlib import Path
 
-from flask import Blueprint, jsonify, request, send_file, abort
+from flask import Blueprint, jsonify, request, send_file
 
 from auth import jwt_required
 from config import Config

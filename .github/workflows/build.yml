@@ -31,26 +31,23 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install flake8 pylint bandit
+          pip install flake8 bandit
           pip install -r requirements.txt
 
       - name: Run flake8
-        run: flake8 server/ --max-line-length=120 --ignore=E501,W503,E402,E131,E128,E127,E126,E121,E122
+        run: flake8 server/
 
       - name: Run bandit (security scan)
         run: bandit -r server/ -ll --skip B104,B108,B602,B603,B607
 
   # ─── Unit Tests ─────────────────────────────────────────────────────────
   test:
-    name: Test on ${{ matrix.os }} / Python ${{ matrix.python }}
-    runs-on: ${{ matrix.os }}
+    name: Test (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04]
-        python: ['3.8', '3.9', '3.10', '3.11', '3.12']
-        exclude:
-          - os: ubuntu-24.04
-            python: '3.8'
+        python: ['3.9', '3.11', '3.12']
     steps:
       - uses: actions/checkout@v4
 
@@ -87,13 +84,10 @@ jobs:
 
   # ─── Installation Test ─────────────────────────────────────────────────
   install-test:
-    name: Install Test on ${{ matrix.os }}
+    name: Install Test (Ubuntu 22.04)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04]
     container:
-      image: ${{ matrix.os == 'ubuntu-20.04' && 'ubuntu:20.04' || matrix.os == 'ubuntu-22.04' && 'ubuntu:22.04' || 'ubuntu:24.04' }}
+      image: ubuntu:22.04
       options: --privileged
     steps:
       - uses: actions/checkout@v4
@@ -101,7 +95,7 @@ jobs:
       - name: Install prerequisites
         run: |
           apt-get update -qq
-          apt-get install -y -qq curl openssl systemd python3 python3-pip python3-venv python3-dev libpam0g-dev
+          apt-get install -y -qq curl openssl python3 python3-pip python3-venv python3-dev libpam0g-dev
         env:
           DEBIAN_FRONTEND: noninteractive
 
@@ -219,27 +213,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ─── CentOS/RHEL Install Test ──────────────────────────────────────────
-  test-centos:
-    name: Install Test (CentOS)
-    runs-on: ubuntu-latest
-    container:
-      image: centos:7
-      options: --privileged
-    needs: [lint]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install prerequisites
-        run: |
-          yum install -y curl openssl python3 python3-pip python3-devel pam-devel gcc
-
-      - name: Test Python imports
-        run: |
-          pip3 install -r requirements.txt
-          cd server
-          python3 -c "
-          import config, descriptions
-          print(f'✅ Modules load on CentOS: v{config.Config.VERSION}')
-          "

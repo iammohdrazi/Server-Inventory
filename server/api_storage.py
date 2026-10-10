@@ -4,7 +4,6 @@ ServerInventory — Storage Information API
 Disk usage, partitions, mount points, SMART data, and I/O stats.
 """
 
-import os
 import logging
 import subprocess
 

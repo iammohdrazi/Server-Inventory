@@ -12,7 +12,6 @@ import struct
 import fcntl
 import termios
 import logging
-import subprocess
 
 from auth import jwt_required_socket
 
