@@ -22,15 +22,13 @@ ServerInventory lets you monitor, manage, and control your Linux servers from an
 ## 🚀 Quick Install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/YOUR_ORG/ServerInventory/main/install.sh | sudo bash
-```
+# Option 1: Git Clone (Recommended)
+git clone https://github.com/iammohdrazi/Server-Inventory.git
+cd Server-Inventory
+sudo bash install.sh --local
 
-Or download the latest release:
-
-```bash
-wget https://github.com/YOUR_ORG/ServerInventory/releases/latest/download/serverinventory.tar.gz
-sudo tar -xzf serverinventory.tar.gz -C /opt/
-sudo /opt/serverinventory/install.sh --local
+# Option 2: Quick Install via curl (if repository is public)
+curl -sSL https://raw.githubusercontent.com/iammohdrazi/Server-Inventory/main/install.sh | sudo bash
 ```
 
 ## 🔒 Security

@@ -1,6 +1,6 @@
 [Unit]
 Description=ServerInventory — Linux Server Management
-Documentation=https://github.com/YOUR_ORG/ServerInventory
+Documentation=https://github.com/iammohdrazi/Server-Inventory
 After=network.target network-online.target
 Wants=network-online.target
 

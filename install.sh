@@ -11,7 +11,7 @@ INSTALL_DIR="/opt/serverinventory"
 DATA_DIR="/var/lib/serverinventory"
 SERVICE_NAME="serverinventory"
 VERSION="1.0.0"
-REPO_URL="https://github.com/YOUR_ORG/ServerInventory"
+REPO_URL="https://github.com/iammohdrazi/Server-Inventory"
 MIN_PYTHON_VERSION="3.8"
 PORT=9443
 
@@ -286,7 +286,7 @@ install_systemd_service() {
     cat > /etc/systemd/system/${SERVICE_NAME}.service <<EOF
 [Unit]
 Description=ServerInventory — Linux Server Management
-Documentation=https://github.com/YOUR_ORG/ServerInventory
+Documentation=https://github.com/iammohdrazi/Server-Inventory
 After=network.target network-online.target
 Wants=network-online.target
 
