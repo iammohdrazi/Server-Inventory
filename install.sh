@@ -104,7 +104,8 @@ check_python() {
 install_python() {
     case "$OS_ID" in
         ubuntu|debian|linuxmint|pop)
-            sed -i '/cdrom/s/^/#/' /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+            rm -f /etc/apt/sources.list.d/*cdrom* 2>/dev/null || true
+            sed -i 's/^deb cdrom:/# deb cdrom:/' /etc/apt/sources.list 2>/dev/null || true
             apt-get update -qq || true
             apt-get install -y -qq python3 python3-pip python3-venv python3-dev libpam0g-dev
             ;;
@@ -138,7 +139,8 @@ install_system_deps() {
     log_info "Installing system dependencies..."
     case "$OS_ID" in
         ubuntu|debian|linuxmint|pop)
-            sed -i '/cdrom/s/^/#/' /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+            rm -f /etc/apt/sources.list.d/*cdrom* 2>/dev/null || true
+            sed -i 's/^deb cdrom:/# deb cdrom:/' /etc/apt/sources.list 2>/dev/null || true
             apt-get update -qq || true
             apt-get install -y -qq python3-venv python3-dev libpam0g-dev openssl curl
             ;;
