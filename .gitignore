@@ -1,0 +1,45 @@
+# ServerInventory build artifacts
+dist/
+build/
+*.egg-info/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg
+.eggs/
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Data directory (in production)
+/var/lib/serverinventory/
+
+# Node (if any frontend build tools used)
+node_modules/
+
+# Test artifacts
+.coverage
+htmlcov/
+*.xml
+.pytest_cache/

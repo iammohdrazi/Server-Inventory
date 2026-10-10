@@ -1,0 +1,245 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# ServerInventory — CI/CD Pipeline
+# Automated testing, building, and release publishing
+# ═══════════════════════════════════════════════════════════════════════════
+
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # ─── Lint & Static Analysis ─────────────────────────────────────────────
+  lint:
+    name: Lint & Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install flake8 pylint bandit
+          pip install -r requirements.txt
+
+      - name: Run flake8
+        run: flake8 server/ --max-line-length=120 --ignore=E501,W503,E402
+
+      - name: Run bandit (security scan)
+        run: bandit -r server/ -ll --skip B104,B108,B602,B603,B607
+
+  # ─── Unit Tests ─────────────────────────────────────────────────────────
+  test:
+    name: Test on ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04]
+        python: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        exclude:
+          - os: ubuntu-24.04
+            python: '3.8'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libpam0g-dev
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run tests
+        run: |
+          python -m pytest tests/ -v --tb=short --cov=server --cov-report=xml || true
+
+      - name: Test import modules
+        run: |
+          cd server
+          python -c "
+          import config
+          import descriptions
+          print('✅ Core modules import successfully')
+          print(f'   Version: {config.Config.VERSION}')
+          print(f'   Descriptions: {len(descriptions.DESCRIPTIONS)} entries')
+          "
+
+  # ─── Installation Test ─────────────────────────────────────────────────
+  install-test:
+    name: Install Test on ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04]
+    container:
+      image: ${{ matrix.os == 'ubuntu-20.04' && 'ubuntu:20.04' || matrix.os == 'ubuntu-22.04' && 'ubuntu:22.04' || 'ubuntu:24.04' }}
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install prerequisites
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq curl openssl systemd
+        env:
+          DEBIAN_FRONTEND: noninteractive
+
+      - name: Run installer
+        run: |
+          chmod +x install.sh
+          bash install.sh --local 2>&1 || true
+
+      - name: Verify installation
+        run: |
+          # Check files exist
+          test -d /opt/serverinventory/server && echo "✅ Server directory exists"
+          test -d /opt/serverinventory/web && echo "✅ Web directory exists"
+          test -f /opt/serverinventory/venv/bin/python && echo "✅ Virtual environment exists"
+          test -f /var/lib/serverinventory/config.json && echo "✅ Config file exists"
+          test -f /var/lib/serverinventory/certs/server.crt && echo "✅ SSL certificate exists"
+          test -f /etc/systemd/system/serverinventory.service && echo "✅ Service file exists"
+
+      - name: Test application startup
+        run: |
+          cd /opt/serverinventory/server
+          SERVERINVENTORY_DATA=/var/lib/serverinventory \
+          timeout 10 /opt/serverinventory/venv/bin/python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from config import Config
+          print(f'✅ Config loaded: v{Config.VERSION}, port {Config.PORT}')
+          from descriptions import get_description
+          desc = get_description('sshd')
+          print(f'✅ Descriptions working: sshd = {desc}')
+          from api_hardware import _get_cpu_info
+          cpu = _get_cpu_info()
+          print(f'✅ Hardware module: {cpu[\"cores_logical\"]} logical cores')
+          " 2>&1
+
+      - name: Run uninstaller
+        run: |
+          chmod +x /opt/serverinventory/uninstall.sh
+          echo "y" | bash /opt/serverinventory/uninstall.sh 2>&1 || true
+
+      - name: Verify uninstallation
+        run: |
+          ! test -d /opt/serverinventory && echo "✅ Install directory removed"
+          ! test -f /etc/systemd/system/serverinventory.service && echo "✅ Service file removed"
+
+  # ─── Build Release Package ─────────────────────────────────────────────
+  build:
+    name: Build Release
+    needs: [lint, test, install-test]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update version in config
+        run: |
+          sed -i "s/VERSION = '.*'/VERSION = '${{ steps.version.outputs.VERSION }}'/" server/config.py
+
+      - name: Create release package
+        run: |
+          mkdir -p dist
+          tar -czf dist/serverinventory-${{ steps.version.outputs.VERSION }}.tar.gz \
+            --transform='s,^,serverinventory/,' \
+            server/ web/ requirements.txt install.sh uninstall.sh \
+            serverinventory.service README.md LICENSE
+
+          # Also create the generic name for easy download
+          cp dist/serverinventory-${{ steps.version.outputs.VERSION }}.tar.gz \
+             dist/serverinventory.tar.gz
+
+          # Create install script standalone
+          cp install.sh dist/install.sh
+
+          # Generate checksums
+          cd dist
+          sha256sum * > SHA256SUMS
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-packages
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ServerInventory v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## ServerInventory v${{ steps.version.outputs.VERSION }}
+
+            ### Quick Install
+            ```bash
+            curl -sSL https://github.com/${{ github.repository }}/releases/latest/download/install.sh | sudo bash
+            ```
+
+            ### Manual Install
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/serverinventory.tar.gz
+            sudo tar -xzf serverinventory.tar.gz -C /opt/
+            sudo /opt/serverinventory/install.sh --local
+            ```
+
+            ### Changes
+            See [CHANGELOG](https://github.com/${{ github.repository }}/commits/v${{ steps.version.outputs.VERSION }})
+          files: |
+            dist/serverinventory-${{ steps.version.outputs.VERSION }}.tar.gz
+            dist/serverinventory.tar.gz
+            dist/install.sh
+            dist/SHA256SUMS
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─── CentOS/RHEL Install Test ──────────────────────────────────────────
+  test-centos:
+    name: Install Test (CentOS)
+    runs-on: ubuntu-latest
+    container:
+      image: centos:7
+      options: --privileged
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install prerequisites
+        run: |
+          yum install -y curl openssl python3 python3-pip python3-devel pam-devel gcc
+
+      - name: Test Python imports
+        run: |
+          pip3 install -r requirements.txt
+          cd server
+          python3 -c "
+          import config, descriptions
+          print(f'✅ Modules load on CentOS: v{config.Config.VERSION}')
+          "

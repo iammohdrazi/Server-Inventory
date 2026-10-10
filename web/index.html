@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ServerInventory — Professional Linux Server Management Dashboard">
+    <title>ServerInventory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖥️</text></svg>">
+</head>
+<body>
+    <!-- ─── Login Screen ──────────────────────────────────────────── -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-bg-grid"></div>
+        <div class="login-container">
+            <div class="login-logo">
+                <div class="login-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                        <circle cx="12" cy="10" r="2" fill="currentColor" stroke="none"/>
+                    </svg>
+                </div>
+                <h1>ServerInventory</h1>
+                <p class="login-subtitle">Secure Server Management</p>
+            </div>
+            <form id="login-form" autocomplete="on">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        <input type="text" id="username" name="username" placeholder="System username" required autocomplete="username">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                        <input type="password" id="password" name="password" placeholder="System password" required autocomplete="current-password">
+                        <button type="button" class="toggle-password" id="toggle-password" aria-label="Toggle password visibility">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="login-error" class="login-error" style="display:none"></div>
+                <button type="submit" class="btn-login" id="btn-login">
+                    <span class="btn-text">Sign In</span>
+                    <span class="btn-loader" style="display:none"></span>
+                </button>
+            </form>
+            <div class="login-footer">
+                <p>🔒 Uses your Linux system credentials</p>
+            </div>
+        </div>
+        <!-- Install prompt (shown when service is not running) -->
+        <div id="install-prompt" class="install-prompt" style="display:none">
+            <div class="install-card">
+                <div class="install-icon">⚠️</div>
+                <h2>ServerInventory Service Not Running</h2>
+                <p>The ServerInventory backend service is not detected on this server.</p>
+                <div class="install-steps">
+                    <h3>Quick Install</h3>
+                    <code>curl -sSL https://github.com/YOUR_ORG/ServerInventory/releases/latest/download/install.sh | sudo bash</code>
+                </div>
+                <a href="https://github.com/YOUR_ORG/ServerInventory/releases" target="_blank" class="btn-install">
+                    Download Latest Release
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Main Application ─────────────────────────────────────── -->
+    <div id="app" class="app" style="display:none">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                    <span>ServerInventory</span>
+                </div>
+                <button class="sidebar-collapse" id="sidebar-collapse" aria-label="Toggle sidebar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-tab="dashboard" id="nav-dashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="hardware" id="nav-hardware">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="4" width="16" height="16" rx="2"/>
+                        <rect x="9" y="9" width="6" height="6"/>
+                        <line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>
+                        <line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/>
+                        <line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/>
+                        <line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>
+                    </svg>
+                    <span>Hardware</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="software" id="nav-software">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
+                        <polyline points="7.5 19.79 7.5 14.6 3 12"/>
+                        <polyline points="21 12 16.5 14.6 16.5 19.79"/>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                        <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                    <span>Software</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="network" id="nav-network">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="2" y1="12" x2="22" y2="12"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                    <span>Network</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="storage" id="nav-storage">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                    </svg>
+                    <span>Storage</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="services" id="nav-services">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span>Services</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="files" id="nav-files">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <span>Files</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="terminal" id="nav-terminal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="4 17 10 11 4 5"/>
+                        <line x1="12" y1="19" x2="20" y2="19"/>
+                    </svg>
+                    <span>Terminal</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="settings" id="nav-settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+                        <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+                        <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+                        <line x1="1" y1="14" x2="7" y2="14"/>
+                        <line x1="9" y1="8" x2="15" y2="8"/>
+                        <line x1="17" y1="16" x2="23" y2="16"/>
+                    </svg>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info" id="user-info">
+                    <div class="user-avatar" id="user-avatar">U</div>
+                    <div class="user-details">
+                        <span class="user-name" id="user-name">user</span>
+                        <span class="user-role" id="user-role">user</span>
+                    </div>
+                </div>
+                <button class="btn-logout" id="btn-logout" title="Sign Out">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="main-content">
+            <!-- Top Bar -->
+            <header class="topbar">
+                <button class="mobile-menu" id="mobile-menu" aria-label="Menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12"/>
+                        <line x1="3" y1="6" x2="21" y2="6"/>
+                        <line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+                <div class="topbar-title">
+                    <h2 id="page-title">Dashboard</h2>
+                    <span class="topbar-host" id="topbar-host"></span>
+                </div>
+                <div class="topbar-actions">
+                    <div class="server-status" id="server-status">
+                        <span class="status-dot online"></span>
+                        <span class="status-text">Online</span>
+                    </div>
+                    <button class="btn-icon btn-refresh" id="btn-refresh" title="Refresh">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"/>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-area" id="content-area">
+                <!-- Dashboard Tab -->
+                <section class="tab-content active" id="tab-dashboard">
+                    <div class="dashboard-grid">
+                        <div class="stat-card" id="card-cpu">
+                            <div class="stat-header">
+                                <span class="stat-label">CPU Usage</span>
+                                <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="4" y="4" width="16" height="16" rx="2"/>
+                                    <rect x="9" y="9" width="6" height="6"/>
+                                </svg>
+                            </div>
+                            <div class="stat-value" id="dash-cpu-value">--%</div>
+                            <div class="stat-bar"><div class="stat-bar-fill" id="dash-cpu-bar" style="width:0%"></div></div>
+                            <div class="stat-detail" id="dash-cpu-detail">Loading...</div>
+                        </div>
+                        <div class="stat-card" id="card-memory">
+                            <div class="stat-header">
+                                <span class="stat-label">Memory</span>
+                                <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="6" width="20" height="12" rx="2"/>
+                                    <line x1="6" y1="10" x2="6" y2="14"/>
+                                    <line x1="10" y1="10" x2="10" y2="14"/>
+                                    <line x1="14" y1="10" x2="14" y2="14"/>
+                                </svg>
+                            </div>
+                            <div class="stat-value" id="dash-mem-value">--%</div>
+                            <div class="stat-bar"><div class="stat-bar-fill memory" id="dash-mem-bar" style="width:0%"></div></div>
+                            <div class="stat-detail" id="dash-mem-detail">Loading...</div>
+                        </div>
+                        <div class="stat-card" id="card-disk">
+                            <div class="stat-header">
+                                <span class="stat-label">Disk</span>
+                                <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                                </svg>
+                            </div>
+                            <div class="stat-value" id="dash-disk-value">--%</div>
+                            <div class="stat-bar"><div class="stat-bar-fill disk" id="dash-disk-bar" style="width:0%"></div></div>
+                            <div class="stat-detail" id="dash-disk-detail">Loading...</div>
+                        </div>
+                        <div class="stat-card" id="card-network">
+                            <div class="stat-header">
+                                <span class="stat-label">Network</span>
+                                <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </div>
+                            <div class="stat-value" id="dash-net-value">--</div>
+                            <div class="stat-detail" id="dash-net-detail">Loading...</div>
+                        </div>
+                    </div>
+                    <div class="dashboard-row">
+                        <div class="panel" id="panel-sysinfo">
+                            <div class="panel-header">
+                                <h3>System Information</h3>
+                            </div>
+                            <div class="panel-body" id="dash-sysinfo">
+                                <div class="info-skeleton"></div>
+                            </div>
+                        </div>
+                        <div class="panel" id="panel-services-summary">
+                            <div class="panel-header">
+                                <h3>Services Summary</h3>
+                            </div>
+                            <div class="panel-body" id="dash-services-summary">
+                                <div class="info-skeleton"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dashboard-row">
+                        <div class="panel wide" id="panel-top-processes">
+                            <div class="panel-header">
+                                <h3>Top Processes</h3>
+                                <span class="panel-badge" id="dash-proc-count">0</span>
+                            </div>
+                            <div class="panel-body">
+                                <div class="table-responsive">
+                                    <table class="data-table" id="dash-processes-table">
+                                        <thead>
+                                            <tr>
+                                                <th>PID</th>
+                                                <th>Name</th>
+                                                <th>User</th>
+                                                <th>CPU %</th>
+                                                <th>Memory %</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="dash-processes-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Hardware Tab -->
+                <section class="tab-content" id="tab-hardware">
+                    <div class="accordion-list" id="hardware-list">
+                        <div class="info-skeleton"></div>
+                    </div>
+                </section>
+
+                <!-- Software Tab -->
+                <section class="tab-content" id="tab-software">
+                    <div class="sub-tabs">
+                        <button class="sub-tab active" data-subtab="packages" id="subtab-packages">Installed Packages</button>
+                        <button class="sub-tab" data-subtab="processes" id="subtab-processes">Running Processes</button>
+                        <button class="sub-tab" data-subtab="startup" id="subtab-startup">Startup Programs</button>
+                    </div>
+                    <div class="sub-tab-content active" id="subtab-content-packages">
+                        <div class="toolbar">
+                            <div class="search-box">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <input type="text" id="pkg-search" placeholder="Search packages...">
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="packages-table">
+                                <thead><tr><th>Package</th><th>Version</th><th>Size</th><th>Description</th></tr></thead>
+                                <tbody id="packages-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="pagination" id="packages-pagination"></div>
+                    </div>
+                    <div class="sub-tab-content" id="subtab-content-processes">
+                        <div class="toolbar">
+                            <div class="search-box">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <input type="text" id="proc-search" placeholder="Search processes...">
+                            </div>
+                            <select id="proc-sort" class="select-input">
+                                <option value="cpu">Sort by CPU</option>
+                                <option value="memory">Sort by Memory</option>
+                                <option value="name">Sort by Name</option>
+                                <option value="pid">Sort by PID</option>
+                            </select>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="processes-table">
+                                <thead><tr><th>PID</th><th>Name</th><th>User</th><th>CPU %</th><th>Memory %</th><th>Status</th><th>Actions</th></tr></thead>
+                                <tbody id="processes-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="sub-tab-content" id="subtab-content-startup">
+                        <div class="accordion-list" id="startup-list"></div>
+                    </div>
+                </section>
+
+                <!-- Network Tab -->
+                <section class="tab-content" id="tab-network">
+                    <div class="sub-tabs">
+                        <button class="sub-tab active" data-subtab="interfaces" id="subtab-interfaces">Interfaces</button>
+                        <button class="sub-tab" data-subtab="ports" id="subtab-ports">Listening Ports</button>
+                        <button class="sub-tab" data-subtab="connections" id="subtab-connections">Connections</button>
+                        <button class="sub-tab" data-subtab="dns" id="subtab-dns">DNS</button>
+                        <button class="sub-tab" data-subtab="firewall" id="subtab-firewall">Firewall</button>
+                        <button class="sub-tab" data-subtab="net-services" id="subtab-net-services">Services</button>
+                    </div>
+                    <div class="sub-tab-content active" id="subtab-content-interfaces"><div class="accordion-list" id="interfaces-list"></div></div>
+                    <div class="sub-tab-content" id="subtab-content-ports">
+                        <div class="table-responsive">
+                            <table class="data-table" id="ports-table">
+                                <thead><tr><th>Port</th><th>Address</th><th>Process</th><th>PID</th><th>Description</th></tr></thead>
+                                <tbody id="ports-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="sub-tab-content" id="subtab-content-connections">
+                        <div class="table-responsive">
+                            <table class="data-table" id="connections-table">
+                                <thead><tr><th>Local</th><th>Remote</th><th>Status</th><th>Process</th><th>PID</th></tr></thead>
+                                <tbody id="connections-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="sub-tab-content" id="subtab-content-dns"><div id="dns-info" class="info-grid"></div></div>
+                    <div class="sub-tab-content" id="subtab-content-firewall"><pre id="firewall-rules" class="code-block"></pre></div>
+                    <div class="sub-tab-content" id="subtab-content-net-services"><div class="accordion-list" id="net-services-list"></div></div>
+                </section>
+
+                <!-- Storage Tab -->
+                <section class="tab-content" id="tab-storage">
+                    <div class="storage-overview">
+                        <div class="storage-chart-container">
+                            <canvas id="storage-chart" width="300" height="300"></canvas>
+                            <div class="storage-chart-center" id="storage-chart-center">
+                                <span class="chart-value">--%</span>
+                                <span class="chart-label">Used</span>
+                            </div>
+                        </div>
+                        <div class="storage-legend" id="storage-legend"></div>
+                    </div>
+                    <div class="accordion-list" id="storage-list"></div>
+                </section>
+
+                <!-- Services Tab -->
+                <section class="tab-content" id="tab-services">
+                    <div class="toolbar">
+                        <div class="search-box">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" id="svc-search" placeholder="Search services...">
+                        </div>
+                        <div class="filter-group">
+                            <button class="filter-btn active" data-filter="all" id="svc-filter-all">All</button>
+                            <button class="filter-btn" data-filter="active" id="svc-filter-active">Active</button>
+                            <button class="filter-btn" data-filter="inactive" id="svc-filter-inactive">Inactive</button>
+                            <button class="filter-btn" data-filter="failed" id="svc-filter-failed">Failed</button>
+                        </div>
+                    </div>
+                    <div class="accordion-list" id="services-list"></div>
+                </section>
+
+                <!-- Files Tab -->
+                <section class="tab-content" id="tab-files">
+                    <div class="file-toolbar">
+                        <div class="breadcrumb" id="file-breadcrumb">
+                            <a href="#" data-path="/" class="crumb">/</a>
+                        </div>
+                        <div class="file-actions">
+                            <button class="btn-sm" id="btn-upload" title="Upload files">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                                Upload
+                            </button>
+                            <button class="btn-sm" id="btn-mkdir" title="New folder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                                New Folder
+                            </button>
+                            <label class="toggle-label">
+                                <input type="checkbox" id="show-hidden"> Show hidden
+                            </label>
+                        </div>
+                    </div>
+                    <input type="file" id="file-upload-input" multiple style="display:none">
+                    <div class="table-responsive">
+                        <table class="data-table file-table" id="files-table">
+                            <thead><tr><th>Name</th><th>Size</th><th>Modified</th><th>Permissions</th><th>Owner</th><th>Actions</th></tr></thead>
+                            <tbody id="files-body"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Terminal Tab -->
+                <section class="tab-content" id="tab-terminal">
+                    <div class="terminal-container" id="terminal-container">
+                        <div class="terminal-header">
+                            <div class="terminal-dots">
+                                <span class="dot red"></span>
+                                <span class="dot yellow"></span>
+                                <span class="dot green"></span>
+                            </div>
+                            <span class="terminal-title" id="terminal-title">Terminal</span>
+                            <button class="btn-sm terminal-reconnect" id="btn-terminal-reconnect" style="display:none">Reconnect</button>
+                        </div>
+                        <div id="terminal-view"></div>
+                    </div>
+                </section>
+
+                <!-- Settings Tab -->
+                <section class="tab-content" id="tab-settings">
+                    <div class="sub-tabs">
+                        <button class="sub-tab active" data-subtab="sys-general" id="subtab-sys-general">General</button>
+                        <button class="sub-tab" data-subtab="sys-users" id="subtab-sys-users">Users & Groups</button>
+                        <button class="sub-tab" data-subtab="sys-security" id="subtab-sys-security">Security</button>
+                        <button class="sub-tab" data-subtab="sys-cron" id="subtab-sys-cron">Cron Jobs</button>
+                        <button class="sub-tab" data-subtab="sys-sysctl" id="subtab-sys-sysctl">Kernel Parameters</button>
+                    </div>
+                    <div class="sub-tab-content active" id="subtab-content-sys-general"><div id="settings-general" class="info-grid"></div></div>
+                    <div class="sub-tab-content" id="subtab-content-sys-users">
+                        <div class="table-responsive">
+                            <table class="data-table" id="users-table">
+                                <thead><tr><th>Username</th><th>UID</th><th>Home</th><th>Shell</th><th>Groups</th><th>Last Login</th></tr></thead>
+                                <tbody id="users-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="sub-tab-content" id="subtab-content-sys-security"><div id="security-info" class="info-grid"></div></div>
+                    <div class="sub-tab-content" id="subtab-content-sys-cron"><div class="accordion-list" id="cron-list"></div></div>
+                    <div class="sub-tab-content" id="subtab-content-sys-sysctl"><div id="sysctl-info" class="info-grid"></div></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal-overlay" style="display:none">
+        <div class="modal" id="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Details</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+            <div class="modal-footer" id="modal-footer"></div>
+        </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

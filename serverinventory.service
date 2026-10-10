@@ -1,0 +1,31 @@
+[Unit]
+Description=ServerInventory — Linux Server Management
+Documentation=https://github.com/YOUR_ORG/ServerInventory
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/serverinventory/server
+Environment=SERVERINVENTORY_DATA=/var/lib/serverinventory
+Environment=SERVERINVENTORY_PORT=9443
+ExecStart=/opt/serverinventory/venv/bin/python /opt/serverinventory/server/app.py
+Restart=always
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Process management
+KillMode=process
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=serverinventory
+
+[Install]
+WantedBy=multi-user.target
