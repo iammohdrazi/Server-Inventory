@@ -183,32 +183,63 @@ install_application() {
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
     local SRC_DIR=""
 
-    # Check if local files are in script dir or current working dir
-    if [ -f "$SCRIPT_DIR/server/app.py" ]; then
-        SRC_DIR="$SCRIPT_DIR"
-    elif [ -f "./server/app.py" ]; then
-        SRC_DIR="$(pwd)"
-    fi
+    # Check multiple locations for local repository files
+    for dir in "$SCRIPT_DIR" "$(pwd)" "$SCRIPT_DIR/Server-Inventory" "$(pwd)/Server-Inventory" "$SCRIPT_DIR/.." "$(pwd)/.."; do
+        if [ -f "$dir/server/app.py" ]; then
+            SRC_DIR="$(cd "$dir" && pwd)"
+            break
+        fi
+    done
 
     if [ -n "$SRC_DIR" ]; then
         log_info "Local installation detected from ${SRC_DIR}"
-        # Copy files
         cp -r "$SRC_DIR/server" "$INSTALL_DIR/"
         cp -r "$SRC_DIR/web" "$INSTALL_DIR/"
         cp "$SRC_DIR/requirements.txt" "$INSTALL_DIR/"
         [ -f "$SRC_DIR/uninstall.sh" ] && cp "$SRC_DIR/uninstall.sh" "$INSTALL_DIR/"
     else
-        log_info "Downloading latest release..."
-        local DOWNLOAD_URL="${REPO_URL}/releases/latest/download/serverinventory.tar.gz"
-        local TEMP_FILE="/tmp/serverinventory-download.tar.gz"
+        log_info "Fetching application files..."
+        local COPIED=false
+        local TEMP_DIR="/tmp/serverinventory-src"
 
-        if ! curl -sSL -o "$TEMP_FILE" "$DOWNLOAD_URL"; then
-            log_error "Failed to download from ${DOWNLOAD_URL}"
-            exit 1
+        # 1. Try git clone
+        if command -v git &>/dev/null; then
+            rm -rf "$TEMP_DIR"
+            if git clone --depth 1 "https://github.com/iammohdrazi/Server-Inventory.git" "$TEMP_DIR" 2>/dev/null; then
+                cp -r "$TEMP_DIR/server" "$INSTALL_DIR/"
+                cp -r "$TEMP_DIR/web" "$INSTALL_DIR/"
+                cp "$TEMP_DIR/requirements.txt" "$INSTALL_DIR/"
+                [ -f "$TEMP_DIR/uninstall.sh" ] && cp "$TEMP_DIR/uninstall.sh" "$INSTALL_DIR/"
+                rm -rf "$TEMP_DIR"
+                COPIED=true
+            fi
         fi
 
-        tar -xzf "$TEMP_FILE" -C "$INSTALL_DIR" --strip-components=1
-        rm -f "$TEMP_FILE"
+        # 2. Try release tarball or main branch archive
+        if [ "$COPIED" = false ]; then
+            local TEMP_FILE="/tmp/serverinventory-download.tar.gz"
+            local DOWNLOADED=false
+
+            if curl -fsSL -o "$TEMP_FILE" "${REPO_URL}/releases/latest/download/serverinventory.tar.gz" 2>/dev/null; then
+                DOWNLOADED=true
+            elif curl -fsSL -o "$TEMP_FILE" "https://github.com/iammohdrazi/Server-Inventory/archive/refs/heads/main.tar.gz" 2>/dev/null; then
+                DOWNLOADED=true
+            fi
+
+            if [ "$DOWNLOADED" = true ]; then
+                tar -xzf "$TEMP_FILE" -C "$INSTALL_DIR" --strip-components=1
+                rm -f "$TEMP_FILE"
+                COPIED=true
+            fi
+        fi
+
+        if [ "$COPIED" = false ]; then
+            log_error "Could not fetch application files automatically."
+            log_info "Please clone the repository and run the installer locally:"
+            log_info "  git clone https://github.com/iammohdrazi/Server-Inventory.git"
+            log_info "  cd Server-Inventory && sudo bash install.sh --local"
+            exit 1
+        fi
     fi
 
     log_success "Application files installed"
