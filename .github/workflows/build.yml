@@ -1,23 +1,24 @@
 # ═══════════════════════════════════════════════════════════════════════════
 # ServerInventory — CI/CD Pipeline
-# Automated testing, building, and release publishing
+# Manual workflow: linting, testing, building packages & GitHub Release
 # ═══════════════════════════════════════════════════════════════════════════
 
 name: Build & Release
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.0 — leave blank to use version in server/config.py)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
   packages: write
 
 jobs:
-  # ─── Lint & Static Analysis ─────────────────────────────────────────────
+  # ─── Lint & Code Quality ────────────────────────────────────────────────
   lint:
     name: Lint & Code Quality
     runs-on: ubuntu-latest
@@ -106,7 +107,6 @@ jobs:
 
       - name: Verify installation
         run: |
-          # Check files exist
           test -d /opt/serverinventory/server && echo "✅ Server directory exists"
           test -d /opt/serverinventory/web && echo "✅ Web directory exists"
           test -f /opt/serverinventory/venv/bin/python && echo "✅ Virtual environment exists"
@@ -141,18 +141,30 @@ jobs:
           ! test -d /opt/serverinventory && echo "✅ Install directory removed"
           ! test -f /etc/systemd/system/serverinventory.service && echo "✅ Service file removed"
 
-  # ─── Build Release Package ─────────────────────────────────────────────
+  # ─── Build & Release Package ───────────────────────────────────────────
   build:
-    name: Build Release
+    name: Build & Release Package
     needs: [lint, test, install-test]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get version from tag
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Determine version
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          INPUT_VER="${{ github.event.inputs.version }}"
+          if [ -n "$INPUT_VER" ]; then
+            VERSION="$INPUT_VER"
+          else
+            VERSION=$(python3 -c "import sys; sys.path.insert(0, 'server'); from config import Config; print(Config.VERSION)")
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Building version: ${VERSION}"
 
       - name: Update version in config
         run: |
@@ -180,13 +192,15 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-packages
+          name: serverinventory-v${{ steps.version.outputs.VERSION }}
           path: dist/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
+        continue-on-error: true
         with:
           name: ServerInventory v${{ steps.version.outputs.VERSION }}
+          tag_name: v${{ steps.version.outputs.VERSION }}
           body: |
             ## ServerInventory v${{ steps.version.outputs.VERSION }}
 
@@ -201,9 +215,6 @@ jobs:
             sudo tar -xzf serverinventory.tar.gz -C /opt/
             sudo /opt/serverinventory/install.sh --local
             ```
-
-            ### Changes
-            See [CHANGELOG](https://github.com/${{ github.repository }}/commits/v${{ steps.version.outputs.VERSION }})
           files: |
             dist/serverinventory-${{ steps.version.outputs.VERSION }}.tar.gz
             dist/serverinventory.tar.gz
