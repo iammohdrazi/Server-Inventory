@@ -318,10 +318,12 @@ SyslogIdentifier=serverinventory
 WantedBy=multi-user.target
 EOF
 
-    systemctl daemon-reload
-    systemctl enable ${SERVICE_NAME} --now 2>/dev/null || true
+    if pidof systemd &>/dev/null || [ -d /run/systemd/system ]; then
+        systemctl daemon-reload 2>/dev/null || true
+        systemctl enable ${SERVICE_NAME} --now 2>/dev/null || true
+    fi
 
-    log_success "Systemd service installed and started"
+    log_success "Systemd service installed"
 }
 
 configure_firewall() {
