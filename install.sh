@@ -104,7 +104,8 @@ check_python() {
 install_python() {
     case "$OS_ID" in
         ubuntu|debian|linuxmint|pop)
-            apt-get update -qq
+            sed -i '/cdrom/s/^/#/' /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+            apt-get update -qq || true
             apt-get install -y -qq python3 python3-pip python3-venv python3-dev libpam0g-dev
             ;;
         centos|rhel|rocky|almalinux|ol)
@@ -137,7 +138,8 @@ install_system_deps() {
     log_info "Installing system dependencies..."
     case "$OS_ID" in
         ubuntu|debian|linuxmint|pop)
-            apt-get update -qq
+            sed -i '/cdrom/s/^/#/' /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+            apt-get update -qq || true
             apt-get install -y -qq python3-venv python3-dev libpam0g-dev openssl curl
             ;;
         centos|rhel|rocky|almalinux|ol)
@@ -177,15 +179,22 @@ install_application() {
 
     local SCRIPT_DIR
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    local SRC_DIR=""
 
-    # Check if this is a local install (files are in the same directory)
+    # Check if local files are in script dir or current working dir
     if [ -f "$SCRIPT_DIR/server/app.py" ]; then
-        log_info "Local installation detected"
+        SRC_DIR="$SCRIPT_DIR"
+    elif [ -f "./server/app.py" ]; then
+        SRC_DIR="$(pwd)"
+    fi
+
+    if [ -n "$SRC_DIR" ]; then
+        log_info "Local installation detected from ${SRC_DIR}"
         # Copy files
-        cp -r "$SCRIPT_DIR/server" "$INSTALL_DIR/"
-        cp -r "$SCRIPT_DIR/web" "$INSTALL_DIR/"
-        cp "$SCRIPT_DIR/requirements.txt" "$INSTALL_DIR/"
-        [ -f "$SCRIPT_DIR/uninstall.sh" ] && cp "$SCRIPT_DIR/uninstall.sh" "$INSTALL_DIR/"
+        cp -r "$SRC_DIR/server" "$INSTALL_DIR/"
+        cp -r "$SRC_DIR/web" "$INSTALL_DIR/"
+        cp "$SRC_DIR/requirements.txt" "$INSTALL_DIR/"
+        [ -f "$SRC_DIR/uninstall.sh" ] && cp "$SRC_DIR/uninstall.sh" "$INSTALL_DIR/"
     else
         log_info "Downloading latest release..."
         local DOWNLOAD_URL="${REPO_URL}/releases/latest/download/serverinventory.tar.gz"
