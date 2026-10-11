@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServerInventory — Modern Linux Server Management & Telemetry</title>
+    <meta name="description" content="A lightweight, self-hosted Linux management dashboard with HTTPS, PAM authentication, human-readable service descriptions, hardware telemetry, and web terminal.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #07090e;
+            --bg-card: rgba(15, 23, 42, 0.7);
+            --bg-card-hover: rgba(30, 41, 59, 0.85);
+            --border-glow: rgba(99, 102, 241, 0.25);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --secondary: #06b6d4;
+            --accent: #a855f7;
+            --emerald: #10b981;
+            --amber: #f59e0b;
+            --rose: #f43f5e;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            --radius-lg: 18px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            line-height: 1.6;
+            overflow-x: hidden;
+            selection-background-color: var(--primary);
+            selection-color: #fff;
+        }
+
+        /* Ambient Glow & Background Grid */
+        .ambient-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .glow-orb-1 {
+            position: absolute;
+            top: -150px;
+            left: 20%;
+            width: 700px;
+            height: 700px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.18) 0%, rgba(99, 102, 241, 0) 70%);
+            border-radius: 50%;
+            filter: blur(80px);
+            animation: pulse-slow 8s infinite alternate ease-in-out;
+        }
+
+        .glow-orb-2 {
+            position: absolute;
+            top: 400px;
+            right: -100px;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.14) 0%, rgba(6, 182, 212, 0) 70%);
+            border-radius: 50%;
+            filter: blur(80px);
+        }
+
+        .grid-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes pulse-slow {
+            0% { transform: scale(1) translate(0, 0); opacity: 0.8; }
+            100% { transform: scale(1.15) translate(30px, 40px); opacity: 1; }
+        }
+
+        /* Layout Container */
+        .container {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Navigation */
+        .navbar {
+            padding: 24px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-subtle);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(7, 9, 14, 0.75);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: #fff;
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+        }
+
+        .logo-icon {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: #fff;
+        }
+
+        .nav-cta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-github {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-github:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 80px 0 60px;
+            text-align: center;
+        }
+
+        .badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 999px;
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: var(--primary-light);
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--emerald);
+            box-shadow: 0 0 10px var(--emerald);
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4.25rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            margin-bottom: 24px;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, #fff 20%, #94a3b8 60%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            max-width: 720px;
+            margin: 0 auto 40px;
+            font-weight: 400;
+        }
+
+        /* Quick Install Terminal Box */
+        .install-box {
+            max-width: 760px;
+            margin: 0 auto 60px;
+            background: #0f172a;
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            border-radius: var(--radius-md);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 35px rgba(99, 102, 241, 0.2);
+            overflow: hidden;
+            text-align: left;
+        }
+
+        .install-box-header {
+            background: rgba(15, 23, 42, 0.9);
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .dot-red { background: #ef4444; }
+        .dot-yellow { background: #f59e0b; }
+        .dot-green { background: #10b981; }
+
+        .terminal-title {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .install-content {
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            background: #090d16;
+            gap: 16px;
+        }
+
+        .command-text {
+            color: #38bdf8;
+            word-break: break-all;
+        }
+
+        .command-text span {
+            color: var(--text-dim);
+            user-select: none;
+            margin-right: 8px;
+        }
+
+        .btn-copy {
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn-copy:hover {
+            background: var(--primary);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
+        }
+
+        /* Interactive Dashboard Preview */
+        .preview-wrapper {
+            margin: 20px auto 100px;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.8), 0 0 40px rgba(99, 102, 241, 0.15);
+            backdrop-filter: blur(20px);
+        }
+
+        .preview-topbar {
+            background: rgba(10, 15, 29, 0.9);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .preview-tabs {
+            display: flex;
+            gap: 8px;
+        }
+
+        .preview-tab {
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .preview-tab.active {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.4);
+            color: #fff;
+        }
+
+        .preview-tab:hover:not(.active) {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .preview-body {
+            padding: 32px;
+            min-height: 480px;
+            text-align: left;
+        }
+
+        /* Mockup Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+            font-family: var(--font-mono);
+        }
+
+        .stat-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+        }
+
+        /* Mockup Service Item */
+        .service-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .service-item {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .service-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .service-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .service-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .service-badge-running {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .service-name {
+            font-weight: 700;
+            font-size: 1rem;
+            font-family: var(--font-mono);
+            color: #fff;
+        }
+
+        .service-desc-brief {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .service-dropdown {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: none;
+            animation: fadeIn 0.2s ease-in-out;
+        }
+
+        .service-item.open .service-dropdown {
+            display: block;
+        }
+
+        .service-desc-full {
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+
+        .service-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Features Grid */
+        .features {
+            padding: 40px 0 100px;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+
+        .section-header p {
+            color: var(--text-muted);
+            font-size: 1.15rem;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            transition: all 0.3s ease;
+            position: relative;
+            backdrop-filter: blur(12px);
+        }
+
+        .feature-card:hover {
+            border-color: var(--border-glow);
+            transform: translateY(-4px);
+            box-shadow: 0 15px 35px -10px rgba(99, 102, 241, 0.2);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-md);
+            background: rgba(99, 102, 241, 0.12);
+            color: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* Security Pillar Banner */
+        .security-banner {
+            margin: 40px 0 100px;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9));
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: var(--radius-lg);
+            padding: 48px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        @media (max-width: 900px) {
+            .security-banner {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .security-checklist {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .security-checklist li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1rem;
+            color: #e2e8f0;
+        }
+
+        .check-badge {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        /* Comparison Section */
+        .comparison-table-wrapper {
+            margin: 60px 0 100px;
+            overflow-x: auto;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+        }
+
+        table.comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .comparison-table th, .comparison-table td {
+            padding: 18px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 0.95rem;
+        }
+
+        .comparison-table th {
+            background: rgba(15, 23, 42, 0.8);
+            color: #cbd5e1;
+            font-weight: 700;
+        }
+
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .highlight-col {
+            background: rgba(99, 102, 241, 0.08);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 80px 0 120px;
+            text-align: center;
+            position: relative;
+        }
+
+        .cta-card {
+            background: radial-gradient(circle at center, rgba(99, 102, 241, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            border-radius: var(--radius-lg);
+            padding: 60px 40px;
+            box-shadow: 0 0 50px rgba(99, 102, 241, 0.2);
+        }
+
+        .cta-card h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+
+        .cta-card p {
+            color: var(--text-muted);
+            font-size: 1.15rem;
+            max-width: 600px;
+            margin: 0 auto 36px;
+        }
+
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.05rem;
+            padding: 14px 32px;
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.5);
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(99, 102, 241, 0.7);
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 40px 0;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        footer a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-glow">
+        <div class="glow-orb-1"></div>
+        <div class="glow-orb-2"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="navbar">
+            <a href="#" class="logo">
+                <div class="logo-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                        <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                        <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                        <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                    </svg>
+                </div>
+                <span>ServerInventory</span>
+            </a>
+
+            <ul class="nav-links">
+                <li><a href="#features" class="nav-link">Features</a></li>
+                <li><a href="#demo" class="nav-link">Interactive Preview</a></li>
+                <li><a href="#security" class="nav-link">Security</a></li>
+                <li><a href="#installation" class="nav-link">Install</a></li>
+            </ul>
+
+            <div class="nav-cta">
+                <a href="https://github.com/iammohdrazi/Server-Inventory" target="_blank" class="btn-github">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    <span>GitHub Star</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Hero -->
+        <section class="hero">
+            <div class="badge-pill">
+                <span class="badge-dot"></span>
+                <span>Open Source Linux Management • v1.0.0</span>
+            </div>
+
+            <h1>
+                Monitor & Control Your Linux Servers <br>
+                <span class="text-gradient">From Any Web Browser.</span>
+            </h1>
+
+            <p>
+                Self-hosted, lightweight server inventory and real-time management. Connect over secure HTTPS, authenticate with your Linux PAM credentials, inspect hardware telemetry, and manage running services with built-in human explanations.
+            </p>
+
+            <!-- Quick Copy Terminal -->
+            <div class="install-box" id="installation">
+                <div class="install-box-header">
+                    <div class="terminal-dots">
+                        <div class="terminal-dot dot-red"></div>
+                        <div class="terminal-dot dot-yellow"></div>
+                        <div class="terminal-dot dot-green"></div>
+                    </div>
+                    <span class="terminal-title">bash — one-step automated installation</span>
+                </div>
+                <div class="install-content">
+                    <div class="command-text" id="installCmd">
+                        <span>$</span>git clone https://github.com/iammohdrazi/Server-Inventory.git && cd Server-Inventory && sudo bash install.sh --local
+                    </div>
+                    <button class="btn-copy" onclick="copyInstallCmd()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span id="copyBtnText">Copy</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Interactive Live Preview Simulation -->
+            <div class="preview-wrapper" id="demo">
+                <div class="preview-topbar">
+                    <div class="preview-tabs">
+                        <button class="preview-tab active" onclick="switchPreviewTab('services')">
+                            ⚙️ Running Services
+                        </button>
+                        <button class="preview-tab" onclick="switchPreviewTab('hardware')">
+                            🖥️ Hardware Telemetry
+                        </button>
+                        <button class="preview-tab" onclick="switchPreviewTab('terminal')">
+                            💻 Browser Shell
+                        </button>
+                    </div>
+                    <div style="font-family: var(--font-mono); font-size: 0.85rem; color: #34d399; display: flex; align-items: center; gap: 8px;">
+                        <span class="badge-dot"></span> HTTPS:9443 • Authenticated (root)
+                    </div>
+                </div>
+
+                <div class="preview-body" id="previewContainer">
+                    <!-- Stats Bar -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">CPU Utilization <span>8 Cores</span></div>
+                            <div class="stat-value">12.4%</div>
+                            <div class="stat-bar"><div class="stat-bar-fill" style="width: 12.4%;"></div></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">RAM In Use <span>Total 16 GB</span></div>
+                            <div class="stat-value">4.2 GB</div>
+                            <div class="stat-bar"><div class="stat-bar-fill" style="width: 26%;"></div></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Root NVMe Storage <span>/dev/nvme0n1</span></div>
+                            <div class="stat-value">38%</div>
+                            <div class="stat-bar"><div class="stat-bar-fill" style="width: 38%;"></div></div>
+                        </div>
+                    </div>
+
+                    <!-- Services Interactive Accordion List -->
+                    <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+                        Active System Services (Click any service to view human-readable description & status)
+                    </p>
+
+                    <div class="service-list">
+                        <!-- Service 1: OpenSSH -->
+                        <div class="service-item open" onclick="toggleService(this)">
+                            <div class="service-header">
+                                <div class="service-left">
+                                    <span class="service-badge-running">Active</span>
+                                    <span class="service-name">sshd.service</span>
+                                    <span class="service-desc-brief">— OpenSSH Remote Login Server</span>
+                                </div>
+                                <span style="color: var(--text-dim); font-size: 0.85rem;">▼</span>
+                            </div>
+                            <div class="service-dropdown">
+                                <p class="service-desc-full">
+                                    <strong>What is it?</strong> OpenSSH (Secure Shell) allows encrypted remote login and command execution between clients and your server. It secures communications over an insecure network by preventing eavesdropping, connection hijacking, and passwords sniffing.
+                                </p>
+                                <div class="service-meta-grid">
+                                    <div><span>Port:</span> 22/tcp</div>
+                                    <div><span>PID:</span> 1042</div>
+                                    <div><span>Memory:</span> 14.8 MB</div>
+                                    <div><span>Category:</span> Remote Access</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Service 2: Nginx -->
+                        <div class="service-item" onclick="toggleService(this)">
+                            <div class="service-header">
+                                <div class="service-left">
+                                    <span class="service-badge-running">Active</span>
+                                    <span class="service-name">nginx.service</span>
+                                    <span class="service-desc-brief">— High Performance Reverse Proxy & HTTP Server</span>
+                                </div>
+                                <span style="color: var(--text-dim); font-size: 0.85rem;">▼</span>
+                            </div>
+                            <div class="service-dropdown">
+                                <p class="service-desc-full">
+                                    <strong>What is it?</strong> Nginx is an open-source HTTP web server and reverse proxy known for handling thousands of concurrent connections with low memory usage. It balances traffic and secures backend microservices.
+                                </p>
+                                <div class="service-meta-grid">
+                                    <div><span>Ports:</span> 80, 443/tcp</div>
+                                    <div><span>PID:</span> 2490</div>
+                                    <div><span>Memory:</span> 48.2 MB</div>
+                                    <div><span>Category:</span> Web Server</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Service 3: systemd-resolved -->
+                        <div class="service-item" onclick="toggleService(this)">
+                            <div class="service-header">
+                                <div class="service-left">
+                                    <span class="service-badge-running">Active</span>
+                                    <span class="service-name">systemd-resolved.service</span>
+                                    <span class="service-desc-brief">— Network Name Resolution Manager</span>
+                                </div>
+                                <span style="color: var(--text-dim); font-size: 0.85rem;">▼</span>
+                            </div>
+                            <div class="service-dropdown">
+                                <p class="service-desc-full">
+                                    <strong>What is it?</strong> A system service that provides network name resolution to local applications via a D-Bus interface, resolving domain names into IP addresses and caching DNS answers for rapid lookup.
+                                </p>
+                                <div class="service-meta-grid">
+                                    <div><span>Port:</span> 53/udp (127.0.0.53)</div>
+                                    <div><span>PID:</span> 632</div>
+                                    <div><span>Memory:</span> 19.5 MB</div>
+                                    <div><span>Category:</span> Networking / DNS</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Grid -->
+        <section class="features" id="features">
+            <div class="section-header">
+                <h2>Engineered for Linux Administrators</h2>
+                <p>Everything you need to monitor, troubleshoot, and administer your fleet without heavy container agents.</p>
+            </div>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h3>Human-Readable Descriptions</h3>
+                    <p>No more guessing cryptic systemd unit names. Every package and service provides a concise, beginner-friendly description of what it does and whether it is safe to restart.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Native Linux PAM Auth</h3>
+                    <p>No separate database or user accounts to sync. Authenticate securely using your existing OS user accounts (PAM) with JWT sessions and rate-limited brute force protection.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🖥️</div>
+                    <h3>Full Hardware Telemetry</h3>
+                    <p>Deep hardware profiling: CPU architecture, thermal sensors, memory channels, NVMe/SATA SMART health, motherboard BIOS revisions, and PCI hardware inspection.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">💻</div>
+                    <h3>In-Browser Terminal</h3>
+                    <p>Need direct CLI access? Launch a full pseudo-terminal (PTY) inside your browser with xterm.js emulation, ANSI colors, tab completion, and zero external SSH keys required.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📁</div>
+                    <h3>Web File Explorer</h3>
+                    <p>Browse directories, upload configs, inspect system logs, download backups, and edit files directly through an intuitive web-based file management interface.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🚀</div>
+                    <h3>Zero External Dependencies</h3>
+                    <p>Installs as a native systemd unit in seconds. Runs on pure Python + gevent with auto-generated 10-year TLS certificates. No Docker required.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Security Architecture Banner -->
+        <section class="security-banner" id="security">
+            <div>
+                <h2 style="font-size: 2.2rem; font-weight: 800; margin-bottom: 16px;">Enterprise-Grade Security by Design</h2>
+                <p style="color: var(--text-muted); font-size: 1.05rem; margin-bottom: 24px;">
+                    ServerInventory is designed to run safely on production systems, isolated internal networks, and bare-metal homelabs alike.
+                </p>
+                <ul class="security-checklist">
+                    <li><span class="check-badge">✓</span> <strong>TLS 1.2 & 1.3 Encryption:</strong> Auto-generated certificate chains with strong ciphers.</li>
+                    <li><span class="check-badge">✓</span> <strong>PAM Authentication:</strong> Validates passwords against Linux shadow hashes.</li>
+                    <li><span class="check-badge">✓</span> <strong>Rate Limiting:</strong> In-memory brute-force defense on auth endpoints.</li>
+                    <li><span class="check-badge">✓</span> <strong>Session Timeout:</strong> Auto-invalidating JWT tokens with secure cookies.</li>
+                </ul>
+            </div>
+            <div>
+                <div style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: var(--radius-md); padding: 24px; font-family: var(--font-mono); font-size: 0.85rem; color: #a5b4fc;">
+                    <div style="color: #64748b; margin-bottom: 8px;"># Systemd Service Isolation</div>
+                    <div>User=root</div>
+                    <div>WorkingDirectory=/opt/serverinventory/server</div>
+                    <div>Environment=SERVERINVENTORY_PORT=9443</div>
+                    <div>Restart=always</div>
+                    <div style="color: #34d399; margin-top: 12px;"># TLS Auto-Configured</div>
+                    <div>Cert: /var/lib/serverinventory/certs/server.crt</div>
+                    <div>Key:  /var/lib/serverinventory/certs/server.key</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Comparison Table -->
+        <section>
+            <div class="section-header">
+                <h2>How It Compares</h2>
+                <p>Designed to be lightweight and instant without bloating your system.</p>
+            </div>
+
+            <div class="comparison-table-wrapper">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Capability</th>
+                            <th class="highlight-col">ServerInventory</th>
+                            <th>Cockpit</th>
+                            <th>Webmin</th>
+                            <th>Portainer</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Human Service Explanations</strong></td>
+                            <td class="highlight-col" style="color: #34d399;">✓ Built-in Catalog</td>
+                            <td style="color: #94a3b8;">Raw Unit Names</td>
+                            <td style="color: #94a3b8;">Basic Modules</td>
+                            <td style="color: #f43f5e;">Containers Only</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Memory Footprint</strong></td>
+                            <td class="highlight-col" style="color: #34d399;">~40 MB RAM</td>
+                            <td style="color: #e2e8f0;">~120 MB RAM</td>
+                            <td style="color: #e2e8f0;">~150+ MB (Perl)</td>
+                            <td style="color: #e2e8f0;">~80 MB (Go/Docker)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Native Linux PAM Auth</strong></td>
+                            <td class="highlight-col" style="color: #34d399;">✓ Native System Users</td>
+                            <td style="color: #34d399;">✓ Yes</td>
+                            <td style="color: #e2e8f0;">Custom Accounts</td>
+                            <td style="color: #f43f5e;">Custom Accounts</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Auto-Generated TLS HTTPS</strong></td>
+                            <td class="highlight-col" style="color: #34d399;">✓ 10-Yr Self-Signed</td>
+                            <td style="color: #34d399;">✓ Yes</td>
+                            <td style="color: #e2e8f0;">Requires Manual Setup</td>
+                            <td style="color: #e2e8f0;">HTTP Default</td>
+                        </tr>
+                        <tr>
+                            <td><strong>In-Browser Interactive Terminal</strong></td>
+                            <td class="highlight-col" style="color: #34d399;">✓ Full PTY xterm.js</td>
+                            <td style="color: #34d399;">✓ Yes</td>
+                            <td style="color: #e2e8f0;">✓ Basic Java/WS</td>
+                            <td style="color: #94a3b8;">Container Exec Only</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- CTA Section -->
+        <section class="cta-section">
+            <div class="cta-card">
+                <h2>Take Control of Your Servers Today</h2>
+                <p>Deploy in less than 60 seconds with a single shell command.</p>
+                <a href="https://github.com/iammohdrazi/Server-Inventory" target="_blank" class="btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    <span>View Repository on GitHub</span>
+                </a>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer>
+            <div>
+                © 2026 ServerInventory. Created by <strong>Mohd Razi</strong>. Released under the MIT License.
+            </div>
+            <div style="display: flex; gap: 24px;">
+                <a href="https://github.com/iammohdrazi/Server-Inventory" target="_blank">GitHub</a>
+                <a href="https://github.com/iammohdrazi/Server-Inventory/issues" target="_blank">Issues</a>
+                <a href="#installation">Installation Guide</a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Interactive Script -->
+    <script>
+        function copyInstallCmd() {
+            const cmd = "git clone https://github.com/iammohdrazi/Server-Inventory.git && cd Server-Inventory && sudo bash install.sh --local";
+            navigator.clipboard.writeText(cmd).then(() => {
+                const btnText = document.getElementById('copyBtnText');
+                btnText.textContent = "Copied! ✓";
+                setTimeout(() => {
+                    btnText.textContent = "Copy";
+                }, 2500);
+            });
+        }
+
+        function toggleService(element) {
+            element.classList.toggle('open');
+        }
+
+        function switchPreviewTab(tab) {
+            document.querySelectorAll('.preview-tab').forEach(b => b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            const container = document.getElementById('previewContainer');
+
+            if (tab === 'services') {
+                container.innerHTML = `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">CPU Utilization <span>8 Cores</span></div>
+                            <div class="stat-value">12.4%</div>
+                            <div class="stat-bar"><div class="stat-bar-fill" style="width: 12.4%;"></div></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">RAM In Use <span>Total 16 GB</span></div>
+                            <div class="stat-value">4.2 GB</div>
+                            <div class="stat-bar"><div class="stat-bar-fill" style="width: 26%;"></div></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Root NVMe Storage <span>/dev/nvme0n1</span></div>
+                            <div class="stat-value">38%</div>
+                            <div class="stat-bar"><div class="stat-bar-fill" style="width: 38%;"></div></div>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+                        Active System Services (Click any service to view human-readable description & status)
+                    </p>
+                    <div class="service-list">
+                        <div class="service-item open" onclick="toggleService(this)">
+                            <div class="service-header">
+                                <div class="service-left">
+                                    <span class="service-badge-running">Active</span>
+                                    <span class="service-name">sshd.service</span>
+                                    <span class="service-desc-brief">— OpenSSH Remote Login Server</span>
+                                </div>
+                                <span style="color: var(--text-dim); font-size: 0.85rem;">▼</span>
+                            </div>
+                            <div class="service-dropdown">
+                                <p class="service-desc-full">
+                                    <strong>What is it?</strong> OpenSSH (Secure Shell) allows encrypted remote login and command execution between clients and your server. It secures communications over an insecure network by preventing eavesdropping, connection hijacking, and passwords sniffing.
+                                </p>
+                                <div class="service-meta-grid">
+                                    <div><span>Port:</span> 22/tcp</div>
+                                    <div><span>PID:</span> 1042</div>
+                                    <div><span>Memory:</span> 14.8 MB</div>
+                                    <div><span>Category:</span> Remote Access</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="service-item" onclick="toggleService(this)">
+                            <div class="service-header">
+                                <div class="service-left">
+                                    <span class="service-badge-running">Active</span>
+                                    <span class="service-name">nginx.service</span>
+                                    <span class="service-desc-brief">— High Performance Reverse Proxy & HTTP Server</span>
+                                </div>
+                                <span style="color: var(--text-dim); font-size: 0.85rem;">▼</span>
+                            </div>
+                            <div class="service-dropdown">
+                                <p class="service-desc-full">
+                                    <strong>What is it?</strong> Nginx is an open-source HTTP web server and reverse proxy known for handling thousands of concurrent connections with low memory usage.
+                                </p>
+                                <div class="service-meta-grid">
+                                    <div><span>Ports:</span> 80, 443/tcp</div>
+                                    <div><span>PID:</span> 2490</div>
+                                    <div><span>Memory:</span> 48.2 MB</div>
+                                    <div><span>Category:</span> Web Server</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (tab === 'hardware') {
+                container.innerHTML = `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Processor Model</div>
+                            <div class="stat-value" style="font-size: 1.1rem; color: #38bdf8;">AMD Ryzen 7 5800H</div>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">16 Threads • 3.20 GHz (Max 4.4 GHz)</p>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Memory Architecture</div>
+                            <div class="stat-value" style="font-size: 1.1rem; color: #34d399;">16 GB DDR4-3200</div>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">2x 8GB SODIMM • Dual Channel</p>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Motherboard & BIOS</div>
+                            <div class="stat-value" style="font-size: 1.1rem; color: #a855f7;">UEFI Rev 1.24</div>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">SecureBoot: Enabled</p>
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-md); padding: 20px;">
+                        <h4 style="color: #fff; margin-bottom: 12px;">Storage Devices & SMART Health</h4>
+                        <div style="font-family: var(--font-mono); font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px; color: #94a3b8;">
+                            <div style="display: flex; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.02); border-radius: 6px;">
+                                <span>/dev/nvme0n1 (Samsung 980 500GB NVMe)</span>
+                                <span style="color: #34d399;">Health: 99% • 34°C • OK</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.02); border-radius: 6px;">
+                                <span>/dev/sda (Crucial MX500 1TB SATA SSD)</span>
+                                <span style="color: #34d399;">Health: 97% • 31°C • OK</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (tab === 'terminal') {
+                container.innerHTML = `
+                    <div style="background: #05070c; border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); padding: 20px; font-family: var(--font-mono); font-size: 0.9rem; min-height: 280px; color: #38bdf8;">
+                        <div style="color: #64748b; margin-bottom: 8px;">Linux Ubuntu 6.8.0-31-generic #31-Ubuntu SMP x86_64</div>
+                        <div><span style="color: #34d399;">root@server-01</span>:<span style="color: #818cf8;">~</span># uname -a</div>
+                        <div style="color: #cbd5e1;">Linux Ubuntu 6.8.0-31-generic #31-Ubuntu SMP PREEMPT_DYNAMIC x86_64 GNU/Linux</div>
+                        <div style="margin-top: 10px;"><span style="color: #34d399;">root@server-01</span>:<span style="color: #818cf8;">~</span># systemctl status serverinventory</div>
+                        <div style="color: #34d399;">● serverinventory.service - ServerInventory — Linux Server Management</div>
+                        <div style="color: #cbd5e1; padding-left: 14px;">Loaded: loaded (/etc/systemd/system/serverinventory.service; enabled)</div>
+                        <div style="color: #cbd5e1; padding-left: 14px;">Active: <span style="color: #34d399; font-weight: bold;">active (running)</span> since Sun 2026-10-11; 4h 12min ago</div>
+                        <div style="color: #cbd5e1; padding-left: 14px;">Main PID: 1042 (python)</div>
+                        <div style="margin-top: 10px;"><span style="color: #34d399;">root@server-01</span>:<span style="color: #818cf8;">~</span># <span style="display: inline-block; width: 8px; height: 16px; background: #38bdf8; vertical-align: middle; animation: pulse-dot 1s infinite;"></span></div>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
