@@ -362,7 +362,8 @@ EOF
 
     if pidof systemd &>/dev/null || [ -d /run/systemd/system ]; then
         systemctl daemon-reload 2>/dev/null || true
-        systemctl enable ${SERVICE_NAME} --now 2>/dev/null || true
+        systemctl enable ${SERVICE_NAME} 2>/dev/null || true
+        systemctl restart ${SERVICE_NAME} 2>/dev/null || true
     fi
 
     log_success "Systemd service installed"
