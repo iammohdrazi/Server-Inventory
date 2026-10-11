@@ -4,6 +4,9 @@ ServerInventory — Main Application Entry Point
 A professional Linux server management application.
 """
 
+from gevent import monkey
+monkey.patch_all()
+
 import os
 import sys
 import ssl
@@ -153,23 +156,28 @@ if __name__ == '__main__':
     logger.info("║     https://0.0.0.0:%s               ║", Config.PORT)
     logger.info("╚══════════════════════════════════════════╝")
 
-    ssl_context = None
+    run_kwargs = {
+        'host': '0.0.0.0',
+        'port': Config.PORT,
+        'debug': False,
+        'log_output': True,
+        'use_reloader': False
+    }
+
     if Config.SSL_CERT and Config.SSL_KEY:
         if os.path.exists(Config.SSL_CERT) and os.path.exists(Config.SSL_KEY):
-            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-            ssl_context.load_cert_chain(Config.SSL_CERT, Config.SSL_KEY)
-            ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
-            logger.info("SSL/TLS enabled")
+            try:
+                ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                ssl_ctx.load_cert_chain(Config.SSL_CERT, Config.SSL_KEY)
+                ssl_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+                run_kwargs['ssl_context'] = ssl_ctx
+                logger.info("SSL/TLS enabled via SSLContext")
+            except Exception as e:
+                logger.warning("Failed to initialize SSLContext (%s), trying keyfile/certfile fallback", e)
+                run_kwargs['keyfile'] = Config.SSL_KEY
+                run_kwargs['certfile'] = Config.SSL_CERT
         else:
             logger.warning("SSL certificate files not found. Running without HTTPS.")
             logger.warning("Run 'serverinventory --generate-cert' to create certificates.")
 
-    socketio.run(
-        app,
-        host='0.0.0.0',
-        port=Config.PORT,
-        ssl=ssl_context,
-        debug=False,
-        log_output=True,
-        use_reloader=False
-    )
+    socketio.run(app, **run_kwargs)
